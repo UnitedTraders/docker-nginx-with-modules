@@ -8,9 +8,12 @@ ARG with_lua=true
 RUN set -x \
   && apt-get update \
   && apt-get install -y --no-install-suggests \
-  libluajit-5.1-dev libpam0g-dev zlib1g-dev libpcre2-dev \
+  libpam0g-dev zlib1g-dev libpcre2-dev \
   libexpat1-dev git curl build-essential lsb-release libxml2 libxslt1.1 libxslt1-dev autoconf libtool libssl-dev \
   unzip libmaxminddb-dev libbrotli-dev cmake pkg-config libjansson-dev \
+  && if [ "${with_lua}" = "true" ]; then \
+    apt-get install -y --no-install-suggests libluajit-5.1-dev; \
+  fi \
   && apt-get install -y --no-install-suggests libpcre3-dev 2>/dev/null || true
 
 RUN git clone --depth 1 --branch cpp-3.1.0 https://github.com/msgpack/msgpack-c.git /home/msgpack
@@ -58,6 +61,9 @@ RUN set -x \
   module_repo=$(echo $module | sed -E 's@^(((https?|git)://)?[^:]+).*@\1@g'); \
   module_tag=$(echo $module | sed -E 's@^(((https?|git)://)?[^:]+):?([^:/]*)@\4@g'); \
   dirname=$(echo "${module_repo}" | sed -E 's@^.*/|\..*$@@g'); \
+  if [ "${with_lua}" != "true" ]; then \
+    case "${dirname}" in *lua*|*ngx_devel_kit*) echo "Skipping lua module: ${dirname}"; continue;; esac; \
+  fi; \
   git clone --recursive "${module_repo}"; \
   cd ${dirname}; \
   git fetch --tags; \

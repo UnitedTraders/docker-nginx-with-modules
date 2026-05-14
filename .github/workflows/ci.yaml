@@ -28,12 +28,6 @@ jobs:
           with_lua: "false"
           openresty_package_version: 1.27.1.1-1~bookworm1
           experimental: false
-        - nginx: "1.31.0"
-          distro: alpine
-          flavor: tsuru
-          with_lua: "false"
-          openresty_package_version: 1.27.1.1-1~bookworm1
-          experimental: false
 
     steps:
     - uses: actions/checkout@v3
