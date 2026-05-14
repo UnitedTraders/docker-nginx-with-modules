@@ -24,7 +24,7 @@ image: check-required-vars
 	modules=$$(jq -er '.flavors[] | select(.name == "$(flavor)") | .modules | join(",")' flavors.json) && \
 	lua_modules=$$(jq -er '.flavors[] | select(.name == "$(flavor)") | [ .lua_modules[]? ] | join(",")' flavors.json) && \
 	with_lua=$$(jq -er '.flavors[] | select(.name == "$(flavor)") | .with_lua // false' flavors.json) && \
-	openresty_package_version=$$(jq -er '.flavors[] | select(.name == "$(flavor)") | .openresty_package_version // ""' flavors.json) && \
+	openresty_package_version=$$(jq -r '.flavors[] | select(.name == "$(flavor)") | .openresty_package_version // ""' flavors.json) && \
 	$(DOCKER) build $(DOCKER_BUILD_OPTS) \
 		--build-arg nginx_version=$(nginx_version) \
 		--build-arg with_lua=$$with_lua \
