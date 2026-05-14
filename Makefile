@@ -1,4 +1,5 @@
 nginx_version ?= stable
+with_lua ?= true
 
 DOCKER ?= docker
 DOCKER_BUILD_OPTS ?= --platform=linux/amd64
@@ -24,6 +25,7 @@ image: check-required-vars
 	lua_modules=$$(jq -er '.flavors[] | select(.name == "$(flavor)") | [ .lua_modules[]? ] | join(",")' flavors.json) && \
 	$(DOCKER) build $(DOCKER_BUILD_OPTS) \
 		--build-arg nginx_version=$(nginx_version) \
+		--build-arg with_lua=$(with_lua) \
 		--build-arg openresty_package_version=${openresty_package_version} \
 		--build-arg modules="$$modules" \
 		--build-arg lua_modules="$$lua_modules" \

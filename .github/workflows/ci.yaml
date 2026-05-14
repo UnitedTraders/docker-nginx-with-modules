@@ -5,16 +5,35 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.experimental }}
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         nginx:
         - "1.26.3"
+        - "1.28.0"
+        distro:
+        - bookworm
         flavor:
         - tsuru
+        with_lua:
+        - "true"
+        - "false"
         openresty_package_version:
         - 1.27.1.1-1~bookworm1
         experimental:
         - false
+        include:
+        - nginx: "1.31.0"
+          distro: trixie
+          flavor: tsuru
+          with_lua: "false"
+          openresty_package_version: 1.27.1.1-1~bookworm1
+          experimental: false
+        - nginx: "1.31.0"
+          distro: alpine
+          flavor: tsuru
+          with_lua: "false"
+          openresty_package_version: 1.27.1.1-1~bookworm1
+          experimental: true
 
     steps:
     - uses: actions/checkout@v3
@@ -27,13 +46,15 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-buildx-
     - run: |
+        NGINX_TAG="${{ matrix.nginx }}-${{ matrix.distro }}"
         echo MODULES=$(jq -er '.flavors[] | select(.name == "${{ matrix.flavor }}") | .modules | join(",")' flavors.json) >> $GITHUB_ENV
         echo LUA_MODULES=$(jq -er '.flavors[] | select(.name == "${{ matrix.flavor }}") | [ .lua_modules[]? ] | join(",")' flavors.json) >> $GITHUB_ENV
         if [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.ref }}" == refs/tags/* ]]; then
-          echo DOCKER_TAGS=tsuru/nginx-${{ matrix.flavor }}:${{ matrix.nginx }},tsuru/nginx-${{ matrix.flavor }}:${{ matrix.nginx }}-${GITHUB_REF##*/} >> $GITHUB_ENV
+          echo DOCKER_TAGS=tsuru/nginx-${{ matrix.flavor }}:${NGINX_TAG},tsuru/nginx-${{ matrix.flavor }}:${NGINX_TAG}-${GITHUB_REF##*/} >> $GITHUB_ENV
         else
-          echo DOCKER_TAGS=tsuru/nginx-${{ matrix.flavor }}:${{ matrix.nginx }}-${GITHUB_REF##*/} >> $GITHUB_ENV
+          echo DOCKER_TAGS=tsuru/nginx-${{ matrix.flavor }}:${NGINX_TAG}-${GITHUB_REF##*/} >> $GITHUB_ENV
         fi
+        echo NGINX_TAG=${NGINX_TAG} >> $GITHUB_ENV
     - uses: docker/build-push-action@v4
       with:
         load: true
@@ -41,11 +62,12 @@ jobs:
         cache-from: type=local,src=/tmp/.buildx-cache
         cache-to: type=local,dest=/tmp/.buildx-cache
         build-args: |
-          nginx_version=${{ matrix.nginx }}
+          nginx_version=${{ env.NGINX_TAG }}
+          with_lua=${{ matrix.with_lua }}
           openresty_package_version=${{ matrix.openresty_package_version }}
           modules=${{ env.MODULES }}
           lua_modules=${{ env.LUA_MODULES }}
-    - run: make test flavor=${{ matrix.flavor }} nginx_version=${{ matrix.nginx }}
+    - run: make test flavor=${{ matrix.flavor }} nginx_version=${{ env.NGINX_TAG }}
     - uses: docker/login-action@v2
       if: github.event_name != 'pull_request'
       with:
@@ -60,6 +82,7 @@ jobs:
         cache-to: type=local,dest=/tmp/.buildx-cache
         platforms: linux/amd64,linux/arm64
         build-args: |
-          nginx_version=${{ matrix.nginx }}
+          nginx_version=${{ env.NGINX_TAG }}
+          with_lua=${{ matrix.with_lua }}
           modules=${{ env.MODULES }}
           lua_modules=${{ env.LUA_MODULES }}

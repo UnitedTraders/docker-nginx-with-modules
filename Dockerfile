@@ -3,12 +3,15 @@ FROM nginx:${nginx_version} AS build
 
 SHELL ["/bin/bash", "-c"]
 
+ARG with_lua=true
+
 RUN set -x \
   && apt-get update \
   && apt-get install -y --no-install-suggests \
-  libluajit-5.1-dev libpam0g-dev zlib1g-dev libpcre3-dev libpcre2-dev \
+  libluajit-5.1-dev libpam0g-dev zlib1g-dev libpcre2-dev \
   libexpat1-dev git curl build-essential lsb-release libxml2 libxslt1.1 libxslt1-dev autoconf libtool libssl-dev \
-  unzip libmaxminddb-dev libbrotli-dev cmake pkg-config libjansson-dev
+  unzip libmaxminddb-dev libbrotli-dev cmake pkg-config libjansson-dev \
+  && apt-get install -y --no-install-suggests libpcre3-dev 2>/dev/null || true
 
 RUN git clone --depth 1 --branch cpp-3.1.0 https://github.com/msgpack/msgpack-c.git /home/msgpack
 RUN cd /home/msgpack \
@@ -22,16 +25,22 @@ RUN mkdir -p /home/libjwt/build && \
   cmake .. && make && make install
 
 ARG openresty_package_version=1.27.1.1-1~bookworm1
-RUN set -x \
-  && curl -fsSL https://openresty.org/package/pubkey.gpg | apt-key add - \
-  && echo "deb https://openresty.org/package/$(uname -m | grep -qE 'aarch64|arm64' && echo -n 'arm64/')debian $(lsb_release -sc) openresty" | tee -a /etc/apt/sources.list.d/openresty.list \
+RUN if [ "${with_lua}" = "true" ]; then \
+  set -x \
+  && . /etc/os-release \
+  && openresty_codename=${VERSION_CODENAME} \
+  && if [ "${openresty_codename}" = "trixie" ]; then openresty_codename="bookworm"; fi \
+  && install -d /etc/apt/keyrings \
+  && curl -fsSL https://openresty.org/package/pubkey.gpg | gpg --dearmor -o /etc/apt/keyrings/openresty.gpg \
+  && echo "deb [signed-by=/etc/apt/keyrings/openresty.gpg] https://openresty.org/package/$(uname -m | grep -qE 'aarch64|arm64' && echo -n 'arm64/')debian ${openresty_codename} openresty" | tee /etc/apt/sources.list.d/openresty.list \
   && apt-get update \
   && apt-get install -y --no-install-suggests openresty=${openresty_package_version} \
   && cd /usr/local/openresty \
   && cp -vr ./luajit/* /usr/local/ \
   && rm -d /usr/local/share/lua/5.1 \
   && ln -sf /usr/local/lib/lua/5.1 /usr/local/share/lua/ \
-  && cp -vr ./lualib/* /usr/local/lib/lua/5.1
+  && cp -vr ./lualib/* /usr/local/lib/lua/5.1; \
+fi
 
 ENV LUAJIT_LIB=/usr/local/lib \
   LUAJIT_INC=/usr/local/include/luajit-2.1
@@ -73,23 +82,29 @@ RUN set -x \
   && cp -v objs/*.so /usr/lib/nginx/modules/
 
 ARG luarocks_version=3.12.2
-RUN set -x \
+RUN if [ "${with_lua}" = "true" ]; then \
+  set -x \
   && curl -fSL "https://luarocks.org/releases/luarocks-${luarocks_version}.tar.gz" \
   |  tar -C /usr/local/src -xzvf- \
   && ln -s /usr/local/src/luarocks-${luarocks_version} /usr/local/src/luarocks \
   && cd /usr/local/src/luarocks \
-  && ./configure && make && make install
+  && ./configure && make && make install; \
+fi
 
 ARG lua_modules
-RUN set -x \
+RUN if [ "${with_lua}" = "true" ]; then \
+  set -x \
   && ln -s /usr/include/$(uname -m)-linux-gnu /usr/include/linux-gnu \
   && IFS=","; \
   for lua_module in ${lua_modules}; do \
   unset IFS; \
   luarocks install ${lua_module}; \
-  done
+  done; \
+fi
 
 FROM nginx:${nginx_version}
+
+ARG with_lua=true
 
 COPY --from=build /usr/local/bin      /usr/local/bin
 COPY --from=build /usr/local/include  /usr/local/include
@@ -113,7 +128,6 @@ RUN set -x \
   libcurl4-openssl-dev \
   libyajl-dev \
   libxml2 \
-  lua5.1-dev \
   net-tools \
   procps \
   tcpdump \
@@ -122,6 +136,9 @@ RUN set -x \
   vim-tiny \
   libmaxminddb0 \
   libbrotli1 \
+  && if [ "${with_lua}" = "true" ]; then \
+    apt-get install -y --no-install-suggests lua5.1-dev; \
+  fi \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/* \
   && ldconfig -v \

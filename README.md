@@ -24,7 +24,22 @@ URLs.
 To build a flavor you can use the provided Makefile:
 
 ```
-make image flavor=tsuru nginx_version=1.16.1
+make image flavor=tsuru nginx_version=1.26.3-bookworm
 ```
 
 To build a flavor, `jq` is required, cf. [download section of jq](https://stedolan.github.io/jq/download/)
+
+## Lua support
+
+OpenResty, LuaJIT, luarocks, and Lua modules are enabled by default. To build
+an image without Lua support, set `with_lua=false`:
+
+```
+make image flavor=echo nginx_version=1.26.3-bookworm with_lua=false
+```
+
+Or directly with docker build:
+
+```
+docker build --build-arg with_lua=false --build-arg nginx_version=1.26.3-bookworm .
+```
