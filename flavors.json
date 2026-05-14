@@ -2,6 +2,8 @@
   "flavors": [
     {
       "name": "tsuru",
+      "with_lua": true,
+      "openresty_package_version": "1.27.1.1-1~bookworm1",
       "modules": [
         "https://github.com/simplresty/ngx_devel_kit.git:v0.3.1",
         "https://github.com/openresty/lua-nginx-module.git:v0.10.27",
@@ -28,8 +30,17 @@
     },
     {
       "name": "echo",
+      "with_lua": false,
       "modules": [
         "https://github.com/openresty/echo-nginx-module.git"
+      ]
+    },
+    {
+      "name": "utex",
+      "with_lua": false,
+      "modules": [
+        "https://github.com/vozlt/nginx-module-vts.git:v0.2.5",
+        "https://github.com/leev/ngx_http_geoip2_module.git:3.4"
       ]
     }
   ]
