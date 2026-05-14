@@ -33,7 +33,7 @@ jobs:
           flavor: tsuru
           with_lua: "false"
           openresty_package_version: 1.27.1.1-1~bookworm1
-          experimental: true
+          experimental: false
 
     steps:
     - uses: actions/checkout@v3
